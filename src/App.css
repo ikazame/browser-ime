@@ -1,0 +1,16 @@
+.App {
+  margin: 1em;
+}
+
+textarea{
+  width: 20em;
+  height: 10em;
+}
+
+.imeOn {
+  background-color: aliceblue;
+}
+
+.selecting {
+  background-color: rgb(51,102,204);
+}
