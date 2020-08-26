@@ -7,10 +7,11 @@ const InputState = {
   Converting: 1
 }
 
-function useIMEState() {
+function useIMEState(addText) {
   const [rawInput, setRawInput] = useState('');
   const [inputState, setInputState] = useState(InputState.Inputing);
-  let candidates = ['東京', '東響', '問う京']
+  // let candidates = ['東京', '東響', '問う京']
+  const [candidates, setCandidates] = useState([])
   const [candix, setCandix] = useState(0);
   // candixが変更されるときにこれで変えて
   // setRawInput(candidates[candix])
@@ -29,22 +30,46 @@ function useIMEState() {
     else if(e.keyCode == KEY.SPACE) {
       if(inputState == InputState.Inputing) {
         setInputState(InputState.Converting)
+        // mock
+        setCandidates(['東京', '東響', '問う京'])
       }
       else if(inputState == InputState.Converting) {
         setCandix((candix+1) % candidates.length);
       }
-
     }
-    else {
+    else if(e.keyCode == KEY.DOWN_ARROW && inputState == InputState.Converting) {
+      setCandix((candix+1) % candidates.length);
+    }
+    else if(e.keyCode == KEY.UP_ARROW&& inputState == InputState.Converting) {
+      setCandix((candix-1+candidates.length) % candidates.length);
+    }
+    else if(e.keyCode == KEY.ENTER) {
+      addText(candidates[candix])
+      setRawInput('')
+      setInputState(InputState.Inputing);
+    }
+    else if((48 <= e.keyCode && e.keyCode <= 90) || (186 <= e.keyCode && e.keyCode <= 191)
+    || (219 <= e.keyCode && e.keyCode <= 222)) {
       setRawInput(rawInput + e.key);
     }
   }
   return [rawInput, inputState, candidates, candix, onKey];
 }
 
+function useTextarea() {
+  const [text, setText] = useState('');
+  
+  function addText(subtext) {
+    setText(text + subtext)
+  }
+
+  return [text, addText];
+}
+
 function App() {
   const [mode, setMode] = useState(false);
-  const [preEdit, inputState, candidates, candix, onKey] = useIMEState();
+  const [text, addText] = useTextarea();
+  const [preEdit, inputState, candidates, candix, onKey] = useIMEState(addText);
 
   return (
     <div className="App">
@@ -52,7 +77,7 @@ function App() {
         <button onClick={() => setMode(!mode)}>{mode ? 'on' : 'off'}</button>
       </div>
         <textarea className={mode ? "imeOn" : "imeOff"}
-      onKeyDown={(e) => {onKey(e); e.preventDefault();}}>
+      onKeyDown={(e) => {onKey(e); e.preventDefault();}} value={text}>
       </textarea>
       <div>
         <input type="text" style={{textDecoration:"underline"}} value={preEdit} readOnly={true} />
