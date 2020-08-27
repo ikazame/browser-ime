@@ -96,18 +96,22 @@ function useIMEState(addText) {
 function useTextarea(_textareaRef) {
   const [text, setText] = useState('');
   const textareaRef = _textareaRef;
+  // 実際のカーソル位置と完全に同期しているわけではないので注意
+  // 設定直後のみ値とカーソル位置が同一になることが保証される
+  const [cursor, setCursor] = useState(0)
 
   useEffect(() =>{
-    // textareaRef.current.selectionStart = 0
-    // textareaRef.current.selectionEnd = 0
-  }, [text]);
+    textareaRef.current.selectionStart = cursor
+    textareaRef.current.selectionEnd = cursor
+  }, [cursor]);
 
   function addText(subtext) {
     // https://qiita.com/noraworld/items/d6334a4f9b07792200a5
     let pos = textareaRef.current.selectionStart
     setText(text.substr(0, pos) + subtext + text.substr(pos, text.length))
+    setCursor(pos+subtext.length)
 
-    textareaRef.current.selectionStart = 0
+    // textareaRef.current.selectionStart = 0
   }
 
   return [text, addText, setText];
