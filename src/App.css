@@ -7,6 +7,10 @@ textarea{
   height: 10em;
 }
 
+#preEdit {
+  width: 20em;
+}
+
 .imeOn {
   background-color: aliceblue;
 }
