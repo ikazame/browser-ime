@@ -17,11 +17,8 @@ function isNormalKey(keyCode) {
 function useIMEState(preEditRef, addText) {
   const [preEdit, setPreEdit] = useState('');
   const [inputState, setInputState] = useState(InputState.Waiting);
-  // let candidates = ['東京', '東響', '問う京']
   const [candidates, setCandidates] = useState([])
   const [candix, setCandix] = useState(0);
-  // candixが変更されるときにこれで変えて
-  // setPreEdit(candidates[candix])
 
   useEffect(() =>{
     if(inputState === InputState.Converting) {
@@ -44,32 +41,24 @@ function useIMEState(preEditRef, addText) {
     }
     else if(e.keyCode === KEY.SPACE) {
       if(inputState === InputState.Inputing) {
-        if(false){
-          // mock
-          let results = ['東京', '東響', '問う京']
+        const obj = {input: preEdit};
+        const method = "POST";
+        const body = JSON.stringify(obj);
+        const headers = {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        };
+        // fetch("http://localhost:5000", {method, headers, body})
+        fetch("results.json", {headers})
+        .then((res) => res.text()
+        .then((text) => {
+          console.log(text)
+          let results = JSON.parse(text);
           setInputState(InputState.Converting)
           setCandidates(results);
           setPreEdit(results[0]);
           setCandix(0)
-        }
-        else{
-          const obj = {input: preEdit};
-          const method = "POST";
-          const body = JSON.stringify(obj);
-          const headers = {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          };
-          fetch("http://localhost:5000", {method, headers, body})
-          .then((res) => res.text()
-          .then((text) => {
-            let results = JSON.parse(text);
-            setInputState(InputState.Converting)
-            setCandidates(results);
-            setPreEdit(results[0]);
-            setCandix(0)
-          }));
-        }
+        }));
       }
       else if(inputState === InputState.Converting) {
         setCandix((candix+1) % candidates.length);
@@ -90,7 +79,7 @@ function useIMEState(preEditRef, addText) {
       setInputState(InputState.Waiting);
       e.preventDefault();
     }
-    else if(isNormalKey(e.keyCode) && inputState !== InputState.Converting) {
+    else if(isNormalKey(e.keyCode)) {
       if(inputState === InputState.Waiting){
         setInputState(InputState.Inputing)
       }
@@ -100,7 +89,8 @@ function useIMEState(preEditRef, addText) {
       else if(e.keyCode === KEY.KEY_Y && preEdit[preEdit.length-1] === 'n')
         setPreEdit(preEdit + e.key);
       else
-        setPreEdit(toKana(preEdit + e.key));
+        setPreEdit(toKana(preEdit + e.key,  { customKanaMapping: {'nn': 'ん'}}));
+    
       e.preventDefault();
     }
   }
@@ -165,5 +155,3 @@ function App() {
 }
 
 export default App;
-
-// event.target.valueにテキストエリアを変更したあとの値が入るなんて知らなかったのだな
