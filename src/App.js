@@ -9,7 +9,7 @@ const InputState = {
   Converting: 2
 }
 
-function useIMEState(addText) {
+function useIMEState(preEditRef, addText) {
   const [rawInput, setRawInput] = useState('');
   const [inputState, setInputState] = useState(InputState.Waiting);
   // let candidates = ['東京', '東響', '問う京']
@@ -25,6 +25,15 @@ function useIMEState(addText) {
     }
   }, [candix]);
 
+  useEffect(() => {
+    if(inputState === InputState.Inputing){
+      preEditRef.current.focus();
+      // document.getSelection().collapse(preEditRef.current, 1)
+      // preEditRef.current.setSelectionRange(1, 1);
+      console.log("focused")
+    } 
+  }, [inputState])
+
   function onKey(e){
     let keyCode = e.keyCode;
     if (inputState === InputState.Waiting) {
@@ -33,31 +42,39 @@ function useIMEState(addText) {
     || (219 <= e.keyCode && e.keyCode <= 222))) 
         // 新規の文字追加入力でなければ、onChangeに任せる(カーソル移動など)
         return;
+      if(e.ctrlKey) return;
     }
-    if(e.keyCode === KEY.BACKSPACE) {
+    if(e.keyCode === KEY.BACKSPACE && inputState !== InputState.Converting) {
       setRawInput(rawInput.substring(0, rawInput.length-1));
     }
     else if(e.keyCode === KEY.SPACE) {
       if(inputState === InputState.Inputing) {
-        setInputState(InputState.Converting)
-        // mock
-        // setCandidates(['東京', '東響', '問う京'])
-
-        const obj = {input: rawInput};
-        const method = "POST";
-        const body = JSON.stringify(obj);
-        const headers = {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-        };
-        fetch("http://localhost:5000", {method, headers, body})
-        .then((res) => res.text()
-        .then((text) => {
-          let results = JSON.parse(text);
+        if(false){
+          // mock
+          let results = ['東京', '東響', '問う京']
+          setInputState(InputState.Converting)
           setCandidates(results);
           setRawInput(results[0]);
           setCandix(0)
-        }));
+        }
+        else{
+          const obj = {input: rawInput};
+          const method = "POST";
+          const body = JSON.stringify(obj);
+          const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          };
+          fetch("http://localhost:5000", {method, headers, body})
+          .then((res) => res.text()
+          .then((text) => {
+            let results = JSON.parse(text);
+            setInputState(InputState.Converting)
+            setCandidates(results);
+            setRawInput(results[0]);
+            setCandix(0)
+          }));
+        }
       }
       else if(inputState === InputState.Converting) {
         setCandix((candix+1) % candidates.length);
@@ -81,16 +98,26 @@ function useIMEState(addText) {
     }
     else if((48 <= e.keyCode && e.keyCode <= 90) || (186 <= e.keyCode && e.keyCode <= 191)
     || (219 <= e.keyCode && e.keyCode <= 222)) {
-      setInputState(InputState.Inputing)
-      // nをすぐ"ん"にしようとするので、その対策
-      if(e.keyCode === KEY.KEY_N)
-        setRawInput(rawInput + e.key);
-      else
-        setRawInput(toKana(rawInput + e.key));
+      if(inputState !== InputState.Converting){
+        if(inputState === InputState.Waiting){
+          setInputState(InputState.Inputing)
+        }
+        // nをすぐ"ん"にしようとするので、その対策
+        if(e.keyCode === KEY.KEY_N &&  rawInput[rawInput.length-1] !== 'n')
+          setRawInput(rawInput + e.key);
+        else if(e.keyCode === KEY.KEY_Y && rawInput[rawInput.length-1] === 'n')
+          setRawInput(rawInput + e.key);
+        else
+          setRawInput(toKana(rawInput + e.key));
+      }
+    }
+    else if(e.keyCode === KEY.LEFT_ARROW || e.keyCode === KEY.RIGHT_ARROW){
+      // preventDefaultさせたくない。でもこの書き方はdirty
+      return;
     }
     e.preventDefault();
   }
-  return [rawInput, inputState, candidates, candix, onKey];
+  return [rawInput, setRawInput, inputState, candidates, candix, onKey];
 }
 
 function useTextarea(_textareaRef) {
@@ -106,6 +133,7 @@ function useTextarea(_textareaRef) {
   }, [cursor]);
 
   function addText(subtext) {
+    textareaRef.current.focus()
     // https://qiita.com/noraworld/items/d6334a4f9b07792200a5
     let pos = textareaRef.current.selectionStart
     setText(text.substr(0, pos) + subtext + text.substr(pos, text.length))
@@ -114,14 +142,20 @@ function useTextarea(_textareaRef) {
     // textareaRef.current.selectionStart = 0
   }
 
-  return [text, addText, setText];
+  function saveCursorPos() {
+    let pos = textareaRef.current.selectionStart
+    setCursor(pos)
+  }
+
+  return [text, setText, addText,saveCursorPos];
 }
 
 function App() {
-  const [mode, setMode] = useState(false);
+  const [mode, setMode] = useState(true);
   const textareaRef = createRef()
-  const [text, addText, setText] = useTextarea(textareaRef);
-  const [preEdit, inputState, candidates, candix, onKey] = useIMEState(addText);
+  const [text, setText, addText, saveCursorPos] = useTextarea(textareaRef);
+  const preEditRef = createRef()
+  const [preEdit, setPreEdit, inputState, candidates, candix, onKey] = useIMEState(preEditRef, addText);
 
   return (
     <div className="App">
@@ -129,10 +163,10 @@ function App() {
         <button onClick={() => setMode(!mode)}>{mode ? 'on' : 'off'}</button>
       </div>
         <textarea className={mode ? "imeOn" : "imeOff"}
-      onKeyDown={(e) => {if(mode) onKey(e);}} onChange={(e) => {setText(e.target.value)}} value={text} ref={textareaRef}>
+      onKeyDown={(e) => {if(mode) onKey(e);}} onChange={(e) => {setText(e.target.value)}} onBlur={(e) => saveCursorPos() }value={text} ref={textareaRef}>
       </textarea>
       <div>
-        <input type="text" style={{textDecoration:"underline"}} value={preEdit} readOnly={true} id={"preEdit"} />
+        <input type="text" style={{textDecoration:"underline"}} onKeyDown={(e) => {if(mode) onKey(e);}}  onChange={(e) => {setPreEdit(e.target.value)}} value={preEdit} id={"preEdit"} ref={preEditRef} />
       </div>
       {
         inputState === InputState.Converting &&  
